@@ -84,14 +84,16 @@ test_users <- read_csv("inputs/test_users.csv",
 
 real_train_users <- train_users %>% filter(country_destination != 'NDF')
 
+table(real_train_users$country_destination)
+
 # Pour les variables numerics et dates 
-summary(train_users)
+summary(real_train_users)
 
 missingVals <- as.data.frame(sapply(train_users, FUN = "countMissingVals"))
 colnames(missingVals) <- "Nombre de valeur manquante"
 missingVals
 
-missmap(train_users, main = "Valeurs manquantes contre celles observées")
+missmap(real_train_users, main = "Valeurs manquantes contre celles observées")
 
 # Résulats : 
 # Nous avons 99152 (la majorité) valeurs manquantes dans la variable date_first_booking
@@ -108,18 +110,16 @@ missmap(train_users, main = "Valeurs manquantes contre celles observées")
 # s'il y a des valeurs abberantes qualitatives ou pas (exemple si il y a des 
 # des erreurs de saisie ou pas(ex Google et Googl). 
 
-table(train_users$gender)
-table(train_users$signup_method)
-table(train_users$language)
-table(train_users$affiliate_channel)
-table(train_users$affiliate_provider)
-table(train_users$first_affiliate_tracked) 
-table(train_users$signup_app)
-table(train_users$first_device_type)
-table(train_users$first_browser)
-table(train_users$country_destination)
-
-
+table(real_train_users$gender, useNA = 'always')
+table(real_train_users$signup_method)
+table(real_train_users$language)
+table(real_train_users$affiliate_channel)
+table(real_train_users$affiliate_provider)
+table(real_train_users$first_affiliate_tracked) 
+table(real_train_users$signup_app)
+table(real_train_users$first_device_type)
+table(real_train_users$first_browser, useNA = 'always')
+table(real_train_users$country_destination)
 
 
 # pour les variables numerics et dates :
