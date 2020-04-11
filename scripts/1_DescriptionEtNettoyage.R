@@ -26,6 +26,7 @@ library(readr)
 library(ggplot2)
 library(Amelia)
 library(outliers)
+library(vim)
 
 # Chargement des fonctions sources
 source("function/prepareData.R")
@@ -55,7 +56,7 @@ age_gender_bkts <- read_csv("inputs/age_gender_bkts.csv",
 #Strictement, une année n'est pas une date donc on garde le format numérique
 
 train_users <- read_csv("inputs/train_users.csv",
-                        na = c("-unknown-", ""),
+                        na = c("-unknown-", "", ""),
                         col_types = cols(age = col_number(), 
                                          date_account_created = col_date(format = "%Y-%m-%d"), 
                                          date_first_booking = col_date(format = "%Y-%m-%d"), 
@@ -78,8 +79,10 @@ test_users <- read_csv("inputs/test_users.csv",
 # A * Variable manquantes et rare: ---------------------------------
 
 # Pour détecter les valeurs manquantes et rares il suffit d'utiliser la fonction summary() 
-# celle-ci permet de compter le nombre des valeurs manquantes. 
+# celle-ci permet de compter le nombre des valeurs manquantes
 
+
+real_train_users <- train_users %>% filter(country_destination != 'NDF')
 
 # Pour les variables numerics et dates 
 summary(train_users)
@@ -115,6 +118,8 @@ table(train_users$signup_app)
 table(train_users$first_device_type)
 table(train_users$first_browser)
 table(train_users$country_destination)
+
+
 
 
 # pour les variables numerics et dates :
@@ -157,7 +162,7 @@ ggplot(data = train_users,aes(y = age)) +
     ,panel.background = element_blank()
     ,panel.grid.major = element_line(color = "lightgray"))
 
-# Notre boxplot nous montre les interquantilles et l'exsistence de valeurs extremes.
+# Notre boxplot nous montre les interquantilles et l'exsistence de valeurs aberrantes
 # Pour sortir ces valeurs on utilise abboxplot$out 
 
 abboxplot <- boxplot(train_users$age,range=1,5)
@@ -166,6 +171,9 @@ abboxplot$out
 # la visualistaion de la variable age montre beaucoup de valeurs extremes et
 # abberantes.ces valeurs contiennents même des ages qui sont censé etre toloérer
 # tels que : 58 et 59 donc je ne sais pas si je dois les enlever ou pas? 
+
+nb_browser <- train_users %>% summarise_all()
+nb_browser
 
 
 # Visualisation pour la variable signup_flow: 
