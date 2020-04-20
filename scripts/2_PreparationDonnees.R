@@ -1,36 +1,44 @@
+###########################################################################
+#
+# Formation MBA ESG - Big Data Chief Data Officer
+#
+# Projet Final : Prédicton du pays de destination des gens sur Airbnb
+#
+# Formateur : Xue ZHAO
+# Mail : xue.zhao@protonmail.com
+#
+#  Etudiants :  Amine ALIANE, Meriam HAMMOUDA, 
+#               Imed Eddine BOUSSOUF, Khaoula ELMOUTAMID,
+#               Lina SAIDANE, Esteban GOBERT
+#
+#  Mails : amine_aliane@hotmail.fr
+#         hammouda.meriam@yahoo.fr
+#         imededdine.boussouf@yahoo.com
+#         khaoula.elmoutamid@gmail.com
+#         lina.saidane96@gmail.com
+#         esteban.gobert@me.com
+#
+###########################################################################
+
+# Charger les packages:---------------------------------------------
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(Amelia)
+library(outliers)
+library(VIM)
+
+# Chargement des fonctions sources
+source("function/prepareData.R")
+
 # Step n°2: Préparation des données --------------------------
 
 ## 1- Descrition statistique et Nettoyage de données:--------
 
 ### 1. Description de la qualité des données "train_users": ---------------------------
 
-# A * Variable manquantes et rare: ---------------------------------
-
-# Pour détecter les valeurs manquantes et rares il suffit d'utiliser la fonction summary() 
-# celle-ci permet de compter le nombre des valeurs manquantes
-
-
+# On enleve les clients qui n'ont pas de prediction de pays
 real_train_users <- train_users %>% filter(country_destination != 'NDF')
-
-table(real_train_users$country_destination)
-
-# Pour les variables numerics et dates 
-summary(real_train_users)
-
-missingVals <- as.data.frame(sapply(train_users, FUN = "countMissingVals"))
-colnames(missingVals) <- "Nombre de valeur manquante"
-missingVals
-
-missmap(real_train_users, main = "Valeurs manquantes contre celles observées")
-
-# Résulats : 
-# Nous avons 99152 (la majorité) valeurs manquantes dans la variable date_first_booking
-# ce nombre de valeur manquantes me parrait acceptable et comprhénsible du fait que ce n'est pas
-# tous ceux qui consulte le site résevent. 
-# Nous avons aussi 70172 de valeurs manquantes dans la variable age. 
-# 6216 NA dans first_affiliate_tracked
-
-# B* LA détection des valeurs abberantes et extremes : --------------
 
 # pour détecter les valeurs abberantes pour les variables catégorielles nous 
 # avons besoin de la fonction levels() ou la fonction table() qui nous 
@@ -38,115 +46,186 @@ missmap(real_train_users, main = "Valeurs manquantes contre celles observées")
 # s'il y a des valeurs abberantes qualitatives ou pas (exemple si il y a des 
 # des erreurs de saisie ou pas(ex Google et Googl). 
 
+
+# On observe les variables dans leur ensemble pour detecter les valeurs aberrantes, extremes ou manquantes
+## les variables catégorielles
 table(real_train_users$gender, useNA = 'always')
-table(real_train_users$signup_method)
-table(real_train_users$language)
-table(real_train_users$affiliate_channel)
-table(real_train_users$affiliate_provider)
-table(real_train_users$first_affiliate_tracked) 
-table(real_train_users$signup_app)
-table(real_train_users$first_device_type)
+table(real_train_users$signup_method, useNA = 'always')
+table(real_train_users$language, useNA = 'always')
+table(real_train_users$affiliate_channel, useNA = 'always')
+table(real_train_users$affiliate_provider,useNA = 'always')
+table(real_train_users$first_affiliate_tracked, useNA = 'always') 
+table(real_train_users$signup_app, useNA = 'always')
+table(real_train_users$first_device_type, useNA = 'always')
 table(real_train_users$first_browser, useNA = 'always')
-table(real_train_users$country_destination)
+table(real_train_users$country_destination, useNA = 'always')
 
-
-# pour les variables numerics et dates :
-
-summary(train_users)
-
-pinf = 0.025 # fixe le percentile de limite inférieure
-psup = 0.975# fixe le percentile de limite supérieure
-k = 3
-
-binf <- median(train_users$age, na.rm = TRUE) - k * mad(train_users$age, na.rm = TRUE) # calcule la borne inf de l'intervalle
-binf
-
-bsup <- median(train_users$age, na.rm = TRUE) + k * mad (train_users$age, na.rm = TRUE) # calcule la borne sup de l'intervalle
-bsup
-
-outlier_idx <- which(train_users$age < binf | train_users$age > bsup)
-outlier_idx
-
-table(train_users$age)
-
-grubbs.test(train_users$age)
-
-# Nous remarqueons rapidement que pour la variable age il existe des variables extremes
-# telles que 2014 et 1
-# Nous remarquons que pour signup_flow il existe une valeur extreme 25. 
-# Cependant summary ne permet pas de ressortir toutes la variables extremes mais juste montrer 
-# qu'il existe des valeurs extremes. 
-# pour cette raison nous allons utiliser la méthode de visualisation pour bien repérer les 
-# valeurs extremes: 
-
-# visualisation pour la variable age : 
-ggplot(data = train_users,aes(y = age)) +  
+## les variables quantitatives
+ggplot(data = real_train_users,aes(y = age)) +
   geom_boxplot(fill = "green",color = "blue",outlier.colour = "red") +
-  xlab("Boxplot - age") +
-  theme(
-    axis.title.y = element_blank()
-    ,axis.text.x = element_blank()
-    ,axis.ticks.x = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_line(color = "lightgray"))
+  xlab("Boxplot - age")
+# Présence évidente de variable aberrantes/extremes
 
-# Notre boxplot nous montre les interquantilles et l'exsistence de valeurs aberrantes
-# Pour sortir ces valeurs on utilise abboxplot$out 
-
-abboxplot <- boxplot(train_users$age,range=1,5)
-abboxplot$out
-
-# la visualistaion de la variable age montre beaucoup de valeurs extremes et
-# abberantes.ces valeurs contiennents même des ages qui sont censé etre toloérer
-# tels que : 58 et 59 donc je ne sais pas si je dois les enlever ou pas? 
-
-nb_browser <- train_users %>% summarise_all()
-nb_browser
-
-
-# Visualisation pour la variable signup_flow: 
 ggplot(data = train_users,aes(y = signup_flow)) +  
   geom_boxplot(fill = "green",color = "blue",outlier.colour = "red") +
-  xlab("Boxplot - signup flow") +
-  theme(
-    axis.title.y = element_blank()
-    ,axis.text.x = element_blank()
-    ,axis.ticks.x = element_blank()
-    ,panel.background = element_blank()
-    ,panel.grid.major = element_line(color = "lightgray"))
+  xlab("Boxplot - signup flow")
 # Aprés visualistaion de la variable signup_flow nous allons dire qu'il n y a pas des valeurs 
-# abberantes car c'est tout à fait possible qu'un utilisateur entend parler de airbnb dans 25 sites
+# abberantes car c'est tout à fait possible qu'un utilisateur entende parler de airbnb dans 25 sites
+
+## les variables date
+ggplot(real_train_users, aes(x=date_account_created)) +
+  geom_histogram()
+
+ggplot(real_train_users, aes(x=timestamp_first_active)) +
+  geom_histogram()
+
+ggplot(real_train_users, aes(x=date_first_booking)) +
+  geom_histogram()
+# Pas de valeur aberrantes
+
+# A * Variable aberrantes: ---------------------------------
+
+## âge
+# On considère comme aberrantes les valeurs pour âge  < 18 et âge > 90
+real_train_users <- real_train_users %>%
+  filter(age >= 18 & age <= 90 | is.na(age))
+
+# B * Variables rare: --------------------------------------
+
+## first_browser
+table(real_train_users$first_browser, useNA = 'always')
+ggplot(real_train_users, aes(x=real_train_users$first_browser)) + geom_bar()
+
+# Garder les modalités chrome, firefox, IE, Safari et mobile Safari et grouper 
+# tout le reste dans une modalité “autre” qu’on va filtrer pendant la phase d’apprentissage du modèle.
+# On testera le modèle ultérieurement sur cette modalité écartée.
+browser_extrem <- names(which(table(real_train_users$first_browser) < 2500))
+browser <- names(which(table(real_train_users$first_browser) >= 2500))
+
+# on garde les valeurs extremes de cote
+real_train_users_extremes <- real_train_users %>%
+  filter(first_browser %in% browser_extrem)
+
+real_train_users <- real_train_users %>%
+  filter(first_browser %in% browser | is.na(first_browser))
+
+## affiliate_provider
+table(real_train_users$affiliate_provider)
+ggplot(real_train_users, aes(x=real_train_users$affiliate_provider)) + geom_bar()
+# On garde les modalités “direct”, “google” et on regroupe tout le reste dans la modalité “others”
+providers <- names(which(table(real_train_users$affiliate_provider) < 2000))
+provider_tokeep <- names(which(table(real_train_users$affiliate_provider) >= 2000))
+
+real_train_users <- real_train_users %>% 
+  mutate(affiliate_provider = if_else(affiliate_provider %in% providers, "other", affiliate_provider))
 
 
-# Retraitement des données manquantes/ abberantes / extremes:----------
+## gender
+summary(real_train_users)
+table(real_train_users$gender, useNA = 'always')
+ggplot(real_train_users, aes(x=real_train_users$gender)) + geom_bar()
+# Suppression des lignes “OTHER” (0,14%)
+real_train_users <- real_train_users %>% filter(gender != "OTHER" | is.na(gender))
 
-# Retraitement des valeurs manquantes: --------------------------
+## first_devide_type
 
-# Pour rappel : nous avons des données manquantes sur les variables Age, date_first_booking
-# et first_affiliate_tracked. 
+ggplot(real_train_users, aes(x=real_train_users$first_device_type)) + geom_bar()
+ggplot(data = real_train_users,aes(x = first_device_type, y = count(first_device_type))) +  
+  geom_boxplot(fill = "green",color = "blue",outlier.colour = "red") +
+  xlab("Boxplot - first_device_type")
+## language
 
-# Premierement remplacer les vides dans first_affiliate_tracked par NA:
+language_extrem <- names(which(table(real_train_users$language) < 1000))
+language_tokeep <- names(which(table(real_train_users$language) >= 1000))
+real_train_users <- real_train_users %>%
+  filter(language %in% language_tokeep | is.na(language))
 
-train_users$first_affiliate_tracked [train_users$first_affiliate_tracked ==""] <- NA
+ggplot(real_train_users, aes(x=real_train_users$language)) + geom_bar()
+# il n'y a plus qu'une seule valeur possible, la colonne ne nous sert plus
 
-# Aprés consultattion de la variable on remarque que les valeurs manquantes de celle-ci 
-# souvent il passe directement au site donc il n y a pas une vraie compagne qui les a tracké
-# c'est pour ça il convient de remplacer NA par unknown c'est la modalité la plus proche 
+##
 
-train_users$first_affiliate_tracked [train_users$first_affiliate_tracked == "NA"] <- "-untracked-"
+ggplot(real_train_users, aes(x=real_train_users$affiliate_channel)) + geom_bar()
+
+ggplot(data = real_train_users,aes(y = affiliate_channel)) +  
+  geom_boxplot(fill = "green",color = "blue",outlier.colour = "red") +
+  xlab("Boxplot - affiliate_channel")
+
+# C * Variables manquantes: ---------------------------------
+
+# Pour détecter les valeurs manquantes et rares il suffit d'utiliser la fonction summary() 
+# celle-ci permet de compter le nombre des valeurs manquantes
+
+# Pour les variables numerics et dates 
+summary(real_train_users)
+
+missingVals <- as.data.frame(sapply(real_train_users, FUN = "countMissingVals"))
+colnames(missingVals) <- "Nombre de valeur manquante"
+missingVals
+
+missmap(real_train_users, main = "Valeurs manquantes contre celles observées")
+
+## gender
+# Distribuer le genre sur les NAs en fonction de la proportion de MALE et FEMALE
+setDT(real_train_users)[, gender := sample_fill_na(real_train_users$gender)]
+
+## age
+# Plus proche voisin en clustering (KNN)
+sample <- sample_n(real_train_users, 500)
+
+table(sample$first_affiliate_tracked, useNA = "always")
+table(sample$first_browser, useNA = "always")
+
+missingVals2 <- as.data.frame(sapply(sample, FUN = "countMissingVals"))
+colnames(missingVals2) <- "Nombre de valeur manquante"
+missingVals2
+
+res <- kNN(sample, variable = c("age"), k = 5)
+
+res2 <- kNN(sample, c("first_affiliate_tracked","first_browser"), k = 5)
+
+missingVals3 <- as.data.frame(sapply(res2, FUN = "countMissingVals"))
+colnames(missingVals3) <- "Nombre de valeur manquante"
+missingVals3
+
+table(res2$first_affiliate_tracked, useNA = "always")
+table(res2$first_browser, useNA = "always")
+
+#####  KNN dure 5min pour un sample de 500 lignes
 
 ## 2- Traitement du dataset sessions:--------
 
 ### 1. Agréger le dataset sessions à la maille d'utilisateurs
 
-groupe <- sessions %>%
-  select(user_id, action) %>%
+# Le nombre d'action uniques
+distinct_action_by_user <- sessions %>%
   group_by(user_id) %>%
-  summarise(UNIQUEA = sum(action))
+  summarise(NbActions = n_distinct(action))
 
-res <- aggregate(sessions$user_id, by = list(sessions$action), FUN = unique)
-print(res)
+# Le nombre de combinaisons d'action + action type uniques
+distinct_action_actionType <- sessions %>%
+  group_by(user_id) %>%
+  summarise(NbActions_ActionsTypes = n_distinct(action, action_type))
 
-table(sessions$action)
+# Le nombre de combinaisons d'action + action_type + action_detail uniques
+distinct_action_actionType_actionDetal <- sessions %>%
+  group_by(user_id) %>%
+  summarise(NbActions_ActionsTypes_ActionDetails = n_distinct(action, action_type, action_detail))
 
-unique(sessions$user_id)
+# Le nombre de device_type unique
+distinct_deviceType <- sessions %>%
+  group_by(user_id) %>%
+  summarise(NbDevices = n_distinct(device_type))
+  
+# La durée totale de toutes les actions
+duree_actions <- sessions %>%
+  group_by(user_id) %>%
+  summarise(dureeTotal = sum(secs_elapsed, na.rm = TRUE))
+
+### 1(bis)
+
+# L'action la plus fréquente
+action_most_freq <- sessions %>%
+  group_by(user_id) %>%
+  summarise(Most_freq_action = names(table(action))[which.max(table(action))])
+            
