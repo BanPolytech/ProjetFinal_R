@@ -90,6 +90,28 @@ ggplot(real_train_users, aes(x=date_first_booking)) +
 real_train_users <- real_train_users %>%
   filter(age >= 18 & age <= 90 | is.na(age))
 
+#la variable age est tres disparate, nous allons classer les valeurs par tranche conformément aux tranches décrites
+# dans le jeu de données age_gender_bkts
+real_train_users <- real_train_users %>%
+  mutate(age_tranche = if_else(age < 20, "15-19",
+                       if_else(age > 19 & age < 25, "20-24",
+                       if_else(age > 24 & age < 30, "25-29",
+                       if_else(age > 29 & age < 35, "30-34",
+                       if_else(age > 34 & age < 40, "35-39",
+                       if_else(age > 39 & age < 45, "40-44",
+                       if_else(age > 44 & age < 50, "45-49",
+                       if_else(age > 49 & age < 55, "50-54",
+                       if_else(age > 54 & age < 60, "55-59",
+                       if_else(age > 59 & age < 65, "60-65",
+                       if_else(age > 64 & age < 70, "65-69",
+                       if_else(age > 69 & age < 75, "70-74",
+                       if_else(age > 74 & age < 80, "75-79",
+                       if_else(age > 79 & age < 85, "80-84",
+                       if_else(age > 84 & age <= 90, "85-90", 
+                        NA
+                      ))))))))))))))))
+
+
 # B * Variables rare: --------------------------------------
 
 ## first_browser
@@ -153,12 +175,6 @@ ggplot(data = real_train_users,aes(y = affiliate_channel)) +
 
 # C * Variables manquantes: ---------------------------------
 
-# Pour détecter les valeurs manquantes et rares il suffit d'utiliser la fonction summary() 
-# celle-ci permet de compter le nombre des valeurs manquantes
-
-# Pour les variables numerics et dates 
-summary(real_train_users)
-
 missingVals <- as.data.frame(sapply(real_train_users, FUN = "countMissingVals"))
 colnames(missingVals) <- "Nombre de valeur manquante"
 missingVals
@@ -169,7 +185,7 @@ missmap(real_train_users, main = "Valeurs manquantes contre celles observées")
 # Distribuer le genre sur les NAs en fonction de la proportion de MALE et FEMALE
 setDT(real_train_users)[, gender := sample_fill_na(real_train_users$gender)]
 
-## age
+## age, first_affiliate_tracked, first_browser
 # Plus proche voisin en clustering (KNN)
 sample <- sample_n(real_train_users, 500)
 
@@ -192,6 +208,15 @@ table(res2$first_affiliate_tracked, useNA = "always")
 table(res2$first_browser, useNA = "always")
 
 #####  KNN dure 5min pour un sample de 500 lignes
+
+### 2. Statistiques descriptives de données : "train_users": ---------------------------
+
+# A * Variables quantitatives: ---------------------------------
+library(summarytools)
+library(knitr)
+
+dfSummary(real_train_users$age, round.digits = 2)
+
 
 ## 2- Traitement du dataset sessions:--------
 
@@ -216,7 +241,7 @@ distinct_action_actionType_actionDetal <- sessions %>%
 distinct_deviceType <- sessions %>%
   group_by(user_id) %>%
   summarise(NbDevices = n_distinct(device_type))
-  
+
 # La durée totale de toutes les actions
 duree_actions <- sessions %>%
   group_by(user_id) %>%
@@ -228,4 +253,18 @@ duree_actions <- sessions %>%
 action_most_freq <- sessions %>%
   group_by(user_id) %>%
   summarise(Most_freq_action = names(table(action))[which.max(table(action))])
-            
+
+
+## user_sessions 
+user_sessions <- inner_join(distinct_action_by_user, distinct_action_actionType, by = "user_id")
+user_sessions <- inner_join(user_sessions, distinct_action_actionType_actionDetal, by = "user_id")
+user_sessions <- inner_join(user_sessions, distinct_deviceType, by = "user_id")
+user_sessions <- inner_join(user_sessions, duree_actions, by = "user_id")
+user_sessions <- inner_join(user_sessions, action_most_freq, by = "user_id")
+
+saveRDS(user_sessions, "R_data/user_sessions.RDS")
+
+
+## 3- Jointures--------
+
+train_dataset <- inner_join(train_users, user_sessions, by = "user_id")
