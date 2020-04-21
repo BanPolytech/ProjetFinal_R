@@ -88,29 +88,18 @@ ggplot(real_train_users, aes(x=date_first_booking)) +
 ## âge
 # On considère comme aberrantes les valeurs pour âge  < 18 et âge > 90
 real_train_users <- real_train_users %>%
-  filter(age >= 18 & age <= 90 | is.na(age))
+  filter(age >= 18 & age < 90 | is.na(age))
 
 #la variable age est tres disparate, nous allons classer les valeurs par tranche conformément aux tranches décrites
 # dans le jeu de données age_gender_bkts
-real_train_users <- real_train_users %>%
-  mutate(age_tranche = if_else(age < 20, "15-19",
-                       if_else(age > 19 & age < 25, "20-24",
-                       if_else(age > 24 & age < 30, "25-29",
-                       if_else(age > 29 & age < 35, "30-34",
-                       if_else(age > 34 & age < 40, "35-39",
-                       if_else(age > 39 & age < 45, "40-44",
-                       if_else(age > 44 & age < 50, "45-49",
-                       if_else(age > 49 & age < 55, "50-54",
-                       if_else(age > 54 & age < 60, "55-59",
-                       if_else(age > 59 & age < 65, "60-65",
-                       if_else(age > 64 & age < 70, "65-69",
-                       if_else(age > 69 & age < 75, "70-74",
-                       if_else(age > 74 & age < 80, "75-79",
-                       if_else(age > 79 & age < 85, "80-84",
-                       if_else(age > 84 & age <= 90, "85-90", 
-                        NA
-                      ))))))))))))))))
 
+real_train_users <- real_train_users %>%
+  mutate(age_tranche = cut_width(age,
+                                 width = 5,
+                                 boundary = 90,
+                                 labels = c("15-19","20-24","25-29","30-34","35-39","40-44","45-49","50-54","55-59","60-64","65-69","70-74","75-79","80-84","85-89")))
+
+table(real_train_users$age_tranche, useNA = "always")
 
 # B * Variables rare: --------------------------------------
 
@@ -149,7 +138,7 @@ ggplot(real_train_users, aes(x=real_train_users$gender)) + geom_bar()
 # Suppression des lignes “OTHER” (0,14%)
 real_train_users <- real_train_users %>% filter(gender != "OTHER" | is.na(gender))
 
-## first_devide_type
+## first_device_type
 
 ggplot(real_train_users, aes(x=real_train_users$first_device_type)) + geom_bar()
 ggplot(data = real_train_users,aes(x = first_device_type, y = count(first_device_type))) +  
@@ -198,7 +187,9 @@ missingVals2
 
 res <- kNN(sample, variable = c("age"), k = 5)
 
-res2 <- kNN(sample, c("first_affiliate_tracked","first_browser"), k = 5)
+res2 <- kNN(real_train_users, c("age_tranche","first_affiliate_tracked","first_browser"), k = 5)
+
+table(res2$age_tranche)
 
 missingVals3 <- as.data.frame(sapply(res2, FUN = "countMissingVals"))
 colnames(missingVals3) <- "Nombre de valeur manquante"
@@ -206,6 +197,8 @@ missingVals3
 
 table(res2$first_affiliate_tracked, useNA = "always")
 table(res2$first_browser, useNA = "always")
+
+table(real_train_users$country_destination)
 
 #####  KNN dure 5min pour un sample de 500 lignes
 
@@ -221,46 +214,72 @@ dfSummary(real_train_users$age, round.digits = 2)
 ## 2- Traitement du dataset sessions:--------
 
 ### 1. Agréger le dataset sessions à la maille d'utilisateurs
-
-# Le nombre d'action uniques
-distinct_action_by_user <- sessions %>%
+user_sessions <- sessions %>%
   group_by(user_id) %>%
-  summarise(NbActions = n_distinct(action))
-
-# Le nombre de combinaisons d'action + action type uniques
-distinct_action_actionType <- sessions %>%
-  group_by(user_id) %>%
-  summarise(NbActions_ActionsTypes = n_distinct(action, action_type))
-
-# Le nombre de combinaisons d'action + action_type + action_detail uniques
-distinct_action_actionType_actionDetal <- sessions %>%
-  group_by(user_id) %>%
-  summarise(NbActions_ActionsTypes_ActionDetails = n_distinct(action, action_type, action_detail))
-
-# Le nombre de device_type unique
-distinct_deviceType <- sessions %>%
-  group_by(user_id) %>%
-  summarise(NbDevices = n_distinct(device_type))
-
-# La durée totale de toutes les actions
-duree_actions <- sessions %>%
-  group_by(user_id) %>%
-  summarise(dureeTotal = sum(secs_elapsed, na.rm = TRUE))
+  summarise(
+            # Le nombre d'action uniques
+            NbActions = n_distinct(action),
+            # Le nombre de combinaisons d'action + action type uniques
+            NbActions_ActionsTypes = n_distinct(action, action_type),
+            # Le nombre de combinaisons d'action + action_type + action_detail uniques
+            NbActions_ActionsTypes_ActionDetails = n_distinct(action, action_type, action_detail),
+            # Le nombre de device_type unique
+            NbDevices = n_distinct(device_type),
+            # La durée totale de toutes les actions
+            dureeTotal = sum(secs_elapsed, na.rm = TRUE))
+  
 
 ### 1(bis)
 
 # L'action la plus fréquente
 action_most_freq <- sessions %>%
   group_by(user_id) %>%
-  summarise(Most_freq_action = names(table(action))[which.max(table(action))])
+  count(action) %>%
+  slice((which.max(n))) %>%
+  mutate(mostFreqAction = action) %>%
+  select(-c(n,action))
 
+# La combinaison d'action + action type la plus fréquente
+action_actionType_most_freq <- sessions %>%
+  group_by(user_id) %>%
+  count(action, action_type) %>%
+  slice((which.max(n))) %>%
+  mutate(mostFreqAction_ActionType = paste(action, action_type)) %>%
+  select(-c(n,action,action_type))
+
+# La combinaison d’ action + action type + action_detail la plus fréquente
+action_actionType_actionDetail_most_freq <- sessions %>%
+  group_by(user_id) %>%
+  count(action, action_type, action_detail) %>%
+  slice((which.max(n))) %>%
+  mutate(mostFreqAction_ActionType_ActionDetail = paste(action, action_type, action_detail)) %>%
+  select(-c(n,action,action_type,action_detail))
+
+# Le device_type le plus fréquent
+deviceType_most_freq <- sessions %>%
+  group_by(user_id) %>%
+  count(device_type) %>%
+  slice((which.max(n))) %>%
+  mutate(mostFreqDeviceType = device_type) %>%
+  select(-c(n,device_type))
+
+# Le maximum de la durée des sessions
+session_max_length <- sessions %>%
+  group_by(user_id) %>%
+  summarise(dureeMax = max(secs_elapsed, na.rm = TRUE))
+
+# La médiane de la durée des sessions
+session_median_length <- sessions %>%
+  group_by(user_id) %>%
+  summarise(dureeMedian = median(secs_elapsed, na.rm = TRUE))
 
 ## user_sessions 
-user_sessions <- inner_join(distinct_action_by_user, distinct_action_actionType, by = "user_id")
-user_sessions <- inner_join(user_sessions, distinct_action_actionType_actionDetal, by = "user_id")
-user_sessions <- inner_join(user_sessions, distinct_deviceType, by = "user_id")
-user_sessions <- inner_join(user_sessions, duree_actions, by = "user_id")
 user_sessions <- inner_join(user_sessions, action_most_freq, by = "user_id")
+user_sessions <- inner_join(user_sessions, action_actionType_most_freq, by = "user_id")
+user_sessions <- inner_join(user_sessions, action_actionType_actionDetail_most_freq, by = "user_id")
+user_sessions <- inner_join(user_sessions, deviceType_most_freq, by = "user_id")
+user_sessions <- inner_join(user_sessions, session_max_length, by = "user_id")
+user_sessions <- inner_join(user_sessions, session_median_length, by = "user_id")
 
 saveRDS(user_sessions, "R_data/user_sessions.RDS")
 
