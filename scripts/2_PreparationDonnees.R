@@ -185,11 +185,20 @@ missingVals2 <- as.data.frame(sapply(sample, FUN = "countMissingVals"))
 colnames(missingVals2) <- "Nombre de valeur manquante"
 missingVals2
 
-res <- kNN(sample, variable = c("age"), k = 5)
+sjc.elbow(sample)
 
-res2 <- kNN(real_train_users, c("age_tranche","first_affiliate_tracked","first_browser"), k = 5)
+res <- kNN(sample,
+           variable = c("age_tranche", "age"),
+           dist_var = c("age_tranche", "gender", "signup_method", "affiliate_provider", "affiliate_channel", "first_device_type", "first_browser", "signup_app", "first_affiliate_tracked", "country_destination"),
+           k = 23)
 
-table(res2$age_tranche)
+res2 <- kNN(real_train_users,
+            variable = c("age_tranche","first_affiliate_tracked","first_browser"),
+            dist_var = c("age_tranche", "gender", "signup_method", "affiliate_provider", "affiliate_channel", "first_device_type", "first_browser", "signup_app", "first_affiliate_tracked", "country_destination"),
+            k = 5)
+
+table(sample$age_tranche, useNA = "always")
+table(res$age_tranche)
 
 missingVals3 <- as.data.frame(sapply(res2, FUN = "countMissingVals"))
 colnames(missingVals3) <- "Nombre de valeur manquante"
@@ -208,7 +217,9 @@ table(real_train_users$country_destination)
 library(summarytools)
 library(knitr)
 
-dfSummary(real_train_users$age, round.digits = 2)
+dfSummary(real_train_users, round.digits = 2)
+
+dfSummary(real_train_users$age_tranche, round.digits = 2)
 
 
 ## 2- Traitement du dataset sessions:--------
