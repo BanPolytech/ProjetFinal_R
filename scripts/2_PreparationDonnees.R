@@ -81,7 +81,7 @@ ggplot(real_train_users, aes(x=timestamp_first_active)) +
 
 ggplot(real_train_users, aes(x=date_first_booking)) +
   geom_histogram()
-# Pas de valeur aberrantes
+# Pas de valeur aberrante
 
 # A * Variable aberrantes: ---------------------------------
 
@@ -285,5 +285,14 @@ saveRDS(user_sessions, "R_data/user_sessions.RDS")
 
 
 ## 3- Jointures--------
+# jointure entre l’agrégation des sessions (user_sessions) et le dataset d’entrainement (train_users)
+train_dataset <- inner_join(real_train_users, user_sessions, by = c("id" = "user_id"))
 
-train_dataset <- inner_join(train_users, user_sessions, by = "user_id")
+# jointure avec le dataset countries
+train_dataset <- left_join(train_dataset, countries, by = "country_destination")
+
+# jointure avec le dataset age_gender_bkts
+age_gender_bkts$gender <- toupper(age_gender_bkts$gender)
+train_dataset <- left_join(train_dataset, age_gender_bkts, by = c("age_tranche" = "age_bucket", "gender" = "gender", "country_destination" = "country_destination"))
+
+saveRDS(train_dataset, "R_data/train_dataset.RDS")
