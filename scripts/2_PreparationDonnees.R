@@ -28,6 +28,9 @@ library(outliers)
 library(VIM)
 library(summarytools)
 library(questionr)
+library(ellipse)
+library(RColorBrewer)
+library(GGally)
 
 # Chargement des fonctions sources
 source("function/prepareData.R")
@@ -218,7 +221,7 @@ dfSummary(real_train_users,
 
 # age
 real_train_users %>%
-  ggplot(aes(x=ageLocf)) + 
+  ggplot(aes(x=age)) + 
   geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
 
 # signup_flow
@@ -241,12 +244,8 @@ mcor
 
 # la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test de Student // ANOVA
 
-  # par âge / country destination
-
-sampletest <- sample_n(real_train_users, 4000)
-shapiro.test(sampletest$age)
-
-t.test(real_train_users$age)
+  #student test par âge / gender
+t.test(real_train_users$age ~ real_train_users$gender)
 
 # B * Variables qualitatives: ---------------------------------
 # les statistiques descriptives univariées : la distribution
@@ -367,3 +366,87 @@ saveRDS(train_dataset, "R_data/train_dataset.RDS")
 
 ## 4- Description statistique sur les indicateurs créés--------
 
+summary(train_dataset)
+
+train_dataset %>%
+  select(-dureeMax) %>%
+  dfSummary()
+
+dfSummary(train_dataset,
+          round.digits = 2,
+          plain.ascii = FALSE)
+# A * Variables quantitatives: ---------------------------------
+# les statistiques descriptives univariées : la distribution
+train_dataset %>%
+  ggplot(aes(x=NbActions)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=NbActions_ActionsTypes)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=NbActions_ActionsTypes_ActionDetails)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=NbDevices)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=dureeTotal)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=dureeMax)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=dureeMedian)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+# les statistiques descriptives bivariées : corrélations entre des variables (Une matrice de corrélation) :
+# boite a moustache avec gender et age
+train_dataset %>%
+  ggplot(aes(x=gender, y=age)) +
+  geom_boxplot(fill="#69b3a2", alpha=0.8)
+
+# matrice de corrélation
+mcor2 <- train_dataset %>%
+  select(age, signup_flow, NbActions, NbActions_ActionsTypes, NbActions_ActionsTypes_ActionDetails, NbDevices, dureeTotal, dureeMedian, dureeMax) %>%
+  cor(use = "complete.obs")
+mcor2
+
+##couleur par genre
+train_dataset %>%
+  select(gender, age, signup_flow, NbActions, NbActions_ActionsTypes, NbActions_ActionsTypes_ActionDetails, NbDevices, dureeTotal, dureeMedian, dureeMax) %>%
+  ggpairs(columns = 2:10,ggplot2::aes(colour = gender))
+
+##couleur par country_destination
+train_dataset %>%
+  select(country_destination, age, signup_flow, NbActions, NbActions_ActionsTypes, NbActions_ActionsTypes_ActionDetails, NbDevices, dureeTotal, dureeMedian, dureeMax) %>%
+  ggpairs(columns = 2:10, ggplot2::aes(colour = country_destination))
+
+# la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test de Student // ANOVA
+# par âge / country destination
+t.test(train_dataset$age ~ train_dataset$gender)
+
+# B * Variables qualitatives: ---------------------------------
+# les statistiques descriptives univariées : la distribution
+dotchart(sort(table(real_train_users$first_browser)))
+
+# les corrélations entre des variables (Une matrice de corrélation)
+tab_genre2 <- table(train_dataset$country_destination, train_dataset$gender)
+tab_genre2
+
+mosaicplot(tab_genre2)
+
+# la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test d’indépendance
+
+# Quel pays est le plus apprécié (destination) entre les hommes et les femmes ?
+chisq.test(tab_genre2)
+chisq.residuals(tab_genre2)
+#L’interprétation des résidus est la suivante :
+# si la valeur du résidu pour une case est inférieure à -2, alors il y a une sous-représentation de cette case dans le tableau : les effectifs sont significativement plus faibles que ceux attendus sous l’hypothèse d’indépendance
+# à l’inverse, si le résidu est supérieur à 2, il y a sur-représentatation de cette case
+# si le résidu est compris entre -2 et 2, il n’y a pas d’écart à l’indépendance significatif
