@@ -22,11 +22,12 @@
 
 # Charger les packages:---------------------------------------------
 library(dplyr)
-library(readr)
 library(ggplot2)
 library(Amelia)
 library(outliers)
 library(VIM)
+library(summarytools)
+library(questionr)
 
 # Chargement des fonctions sources
 source("function/prepareData.R")
@@ -48,6 +49,8 @@ real_train_users <- train_users %>% filter(country_destination != 'NDF')
 
 
 # On observe les variables dans leur ensemble pour detecter les valeurs aberrantes, extremes ou manquantes
+dfSummary(real_train_users, round.digits = 2)
+
 ## les variables catégorielles
 table(real_train_users$gender, useNA = 'always')
 table(real_train_users$signup_method, useNA = 'always')
@@ -86,20 +89,9 @@ ggplot(real_train_users, aes(x=date_first_booking)) +
 # A * Variable aberrantes: ---------------------------------
 
 ## âge
-# On considère comme aberrantes les valeurs pour âge  < 18 et âge > 90
+# On considère comme aberrantes les valeurs pour âge  < 18 et âge >= 90
 real_train_users <- real_train_users %>%
   filter(age >= 18 & age < 90 | is.na(age))
-
-#la variable age est tres disparate, nous allons classer les valeurs par tranche conformément aux tranches décrites
-# dans le jeu de données age_gender_bkts
-
-real_train_users <- real_train_users %>%
-  mutate(age_tranche = cut_width(age,
-                                 width = 5,
-                                 boundary = 90,
-                                 labels = c("15-19","20-24","25-29","30-34","35-39","40-44","45-49","50-54","55-59","60-64","65-69","70-74","75-79","80-84","85-89")))
-
-table(real_train_users$age_tranche, useNA = "always")
 
 # B * Variables rare: --------------------------------------
 
@@ -110,8 +102,8 @@ ggplot(real_train_users, aes(x=real_train_users$first_browser)) + geom_bar()
 # Garder les modalités chrome, firefox, IE, Safari et mobile Safari et grouper 
 # tout le reste dans une modalité “autre” qu’on va filtrer pendant la phase d’apprentissage du modèle.
 # On testera le modèle ultérieurement sur cette modalité écartée.
-browser_extrem <- names(which(table(real_train_users$first_browser) < 2500))
-browser <- names(which(table(real_train_users$first_browser) >= 2500))
+browser_extrem <- names(which(table(real_train_users$first_browser) < 1000))
+browser <- names(which(table(real_train_users$first_browser) >= 1000))
 
 # on garde les valeurs extremes de cote
 real_train_users_extremes <- real_train_users %>%
@@ -130,7 +122,6 @@ provider_tokeep <- names(which(table(real_train_users$affiliate_provider) >= 200
 real_train_users <- real_train_users %>% 
   mutate(affiliate_provider = if_else(affiliate_provider %in% providers, "other", affiliate_provider))
 
-
 ## gender
 summary(real_train_users)
 table(real_train_users$gender, useNA = 'always')
@@ -139,13 +130,11 @@ ggplot(real_train_users, aes(x=real_train_users$gender)) + geom_bar()
 real_train_users <- real_train_users %>% filter(gender != "OTHER" | is.na(gender))
 
 ## first_device_type
-
+table(real_train_users$first_device_type)
 ggplot(real_train_users, aes(x=real_train_users$first_device_type)) + geom_bar()
-ggplot(data = real_train_users,aes(x = first_device_type, y = count(first_device_type))) +  
-  geom_boxplot(fill = "green",color = "blue",outlier.colour = "red") +
-  xlab("Boxplot - first_device_type")
-## language
+## regroupement possible entre les différentes type de device
 
+## language
 language_extrem <- names(which(table(real_train_users$language) < 1000))
 language_tokeep <- names(which(table(real_train_users$language) >= 1000))
 real_train_users <- real_train_users %>%
@@ -154,13 +143,21 @@ real_train_users <- real_train_users %>%
 ggplot(real_train_users, aes(x=real_train_users$language)) + geom_bar()
 # il n'y a plus qu'une seule valeur possible, la colonne ne nous sert plus
 
-##
+## affiliate_channel
+ac_extr <- names(which(table(real_train_users$affiliate_channel) < 1000))
+ac_tokeep <- names(which(table(real_train_users$affiliate_channel) >= 1000))
+real_train_users <- real_train_users %>% 
+  mutate(affiliate_channel = if_else(affiliate_channel %in% ac_extr, "other", affiliate_channel))
 
 ggplot(real_train_users, aes(x=real_train_users$affiliate_channel)) + geom_bar()
 
-ggplot(data = real_train_users,aes(y = affiliate_channel)) +  
-  geom_boxplot(fill = "green",color = "blue",outlier.colour = "red") +
-  xlab("Boxplot - affiliate_channel")
+## first_affiliate_tracked
+fat_extr <- names(which(table(real_train_users$first_affiliate_tracked) < 1000))
+fat_tokeep <- names(which(table(real_train_users$first_affiliate_tracked) >= 1000))
+real_train_users <- real_train_users %>% 
+  mutate(first_affiliate_tracked = if_else(first_affiliate_tracked %in% fat_extr, "tracked-other", first_affiliate_tracked))
+
+
 
 # C * Variables manquantes: ---------------------------------
 
@@ -174,19 +171,12 @@ missmap(real_train_users, main = "Valeurs manquantes contre celles observées")
 # Distribuer le genre sur les NAs en fonction de la proportion de MALE et FEMALE
 setDT(real_train_users)[, gender := sample_fill_na(real_train_users$gender)]
 
-## age, first_affiliate_tracked, first_browser
+## age
+# par la mediane
+library(zoo)
+real_train_users$ageMedian <- na.aggregate(real_train_users$age, FUN = median)
+
 # Plus proche voisin en clustering (KNN)
-sample <- sample_n(real_train_users, 500)
-
-table(sample$first_affiliate_tracked, useNA = "always")
-table(sample$first_browser, useNA = "always")
-
-missingVals2 <- as.data.frame(sapply(sample, FUN = "countMissingVals"))
-colnames(missingVals2) <- "Nombre de valeur manquante"
-missingVals2
-
-sjc.elbow(sample)
-
 res <- kNN(sample,
            variable = c("age_tranche", "age"),
            dist_var = c("age_tranche", "gender", "signup_method", "affiliate_provider", "affiliate_channel", "first_device_type", "first_browser", "signup_app", "first_affiliate_tracked", "country_destination"),
@@ -196,30 +186,88 @@ res2 <- kNN(real_train_users,
             variable = c("age_tranche","first_affiliate_tracked","first_browser"),
             dist_var = c("age_tranche", "gender", "signup_method", "affiliate_provider", "affiliate_channel", "first_device_type", "first_browser", "signup_app", "first_affiliate_tracked", "country_destination"),
             k = 5)
-
-table(sample$age_tranche, useNA = "always")
-table(res$age_tranche)
-
-missingVals3 <- as.data.frame(sapply(res2, FUN = "countMissingVals"))
-colnames(missingVals3) <- "Nombre de valeur manquante"
-missingVals3
-
-table(res2$first_affiliate_tracked, useNA = "always")
-table(res2$first_browser, useNA = "always")
-
-table(real_train_users$country_destination)
-
 #####  KNN dure 5min pour un sample de 500 lignes
+##### KNN pas forcément adapté pour cette volumétrie
+
+# par locf
+real_train_users$age <- na.locf(real_train_users$age)
+## on retiendra cette methode d'imputation car elle ne brise pas la distribution
+
+# first_affiliate_tracked
+table(real_train_users$first_affiliate_tracked, useNA = "always")
+ggplot(real_train_users, aes(x=real_train_users$first_affiliate_tracked)) + geom_bar()
+
+real_train_users$first_affiliate_tracked <- na.locf(real_train_users$first_affiliate_tracked)
+
+# first_browser
+table(real_train_users$first_browser, useNA = "always")
+ggplot(real_train_users, aes(x=real_train_users$first_browser)) + geom_bar()
+
+real_train_users$first_browser <- na.locf(real_train_users$first_browser)
 
 ### 2. Statistiques descriptives de données : "train_users": ---------------------------
+# stats basiques sur toutes les données, stats univariées sur chaque colonnes
+dfSummary(real_train_users,
+          round.digits = 2,
+          na.col = FALSE,
+          varnumbers = FALSE,
+          plain.ascii = TRUE)
 
 # A * Variables quantitatives: ---------------------------------
-library(summarytools)
-library(knitr)
+# les statistiques descriptives univariées : la distribution
 
-dfSummary(real_train_users, round.digits = 2)
+# age
+real_train_users %>%
+  ggplot(aes(x=ageLocf)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
 
-dfSummary(real_train_users$age_tranche, round.digits = 2)
+# signup_flow
+real_train_users %>%
+  ggplot(aes(x=signup_flow)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+# les statistiques descriptives bivariées : corrélations entre des variables (Une matrice de corrélation) : 
+
+# boite a moustache avec gender et age
+real_train_users %>%
+  ggplot(aes(x=gender, y=age)) +
+  geom_boxplot(fill="#69b3a2", alpha=0.8)
+
+# matrice de corrélation
+mcor <- real_train_users %>%
+  select(age, signup_flow) %>%
+  cor(use = "complete.obs")
+mcor
+
+# la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test de Student // ANOVA
+
+  # par âge / country destination
+
+sampletest <- sample_n(real_train_users, 4000)
+shapiro.test(sampletest$age)
+
+t.test(real_train_users$age)
+
+# B * Variables qualitatives: ---------------------------------
+# les statistiques descriptives univariées : la distribution
+
+dotchart(sort(table(real_train_users$first_browser)))
+
+# les corrélations entre des variables (Une matrice de corrélation)
+tab_genre <- table(real_train_users$country_destination, real_train_users$gender)
+tab_genre
+
+mosaicplot(tab_genre)
+
+# la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test d’indépendance
+
+  # Quel pays est le plus apprécié (destination) entre les hommes et les femmes ?
+chisq.test(tab_genre)
+chisq.residuals(tab_genre)
+#L’interprétation des résidus est la suivante :
+# si la valeur du résidu pour une case est inférieure à -2, alors il y a une sous-représentation de cette case dans le tableau : les effectifs sont significativement plus faibles que ceux attendus sous l’hypothèse d’indépendance
+# à l’inverse, si le résidu est supérieur à 2, il y a sur-représentatation de cette case
+# si le résidu est compris entre -2 et 2, il n’y a pas d’écart à l’indépendance significatif
 
 
 ## 2- Traitement du dataset sessions:--------
@@ -303,7 +351,19 @@ train_dataset <- inner_join(real_train_users, user_sessions, by = c("id" = "user
 train_dataset <- left_join(train_dataset, countries, by = "country_destination")
 
 # jointure avec le dataset age_gender_bkts
+
+## Nous allons classer les valeurs par tranche conformément aux tranches décrites
+## dans le jeu de données age_gender_bkts
+real_train_users <- real_train_users %>%
+  mutate(age_tranche = cut_width(age,
+                                 width = 5,
+                                 boundary = 90,
+                                 labels = c("15-19","20-24","25-29","30-34","35-39","40-44","45-49","50-54","55-59","60-64","65-69","70-74","75-79","80-84","85-89")))
+
 age_gender_bkts$gender <- toupper(age_gender_bkts$gender)
 train_dataset <- left_join(train_dataset, age_gender_bkts, by = c("age_tranche" = "age_bucket", "gender" = "gender", "country_destination" = "country_destination"))
 
 saveRDS(train_dataset, "R_data/train_dataset.RDS")
+
+## 4- Description statistique sur les indicateurs créés--------
+

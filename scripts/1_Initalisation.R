@@ -21,15 +21,7 @@
 ###########################################################################
 
 # Charger les packages:---------------------------------------------
-library(dplyr)
 library(readr)
-library(ggplot2)
-library(Amelia)
-library(outliers)
-library(vim)
-
-# Chargement des fonctions sources
-source("function/prepareData.R")
 
 # Step n°1: Initialisation d'un projet R -------------------------
 
