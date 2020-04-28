@@ -134,8 +134,10 @@ real_train_users <- real_train_users %>% filter(gender != "OTHER" | is.na(gender
 
 ## first_device_type
 table(real_train_users$first_device_type)
-ggplot(real_train_users, aes(x=real_train_users$first_device_type)) + geom_bar()
+ggplot(real_train_users, aes(x=first_device_type)) + geom_bar()
 ## regroupement possible entre les différentes type de device
+real_train_users <- real_train_users %>% 
+  mutate(first_device_type = if_else(first_device_type %in% c("Android Phone", "Android Tablet", "Desktop (Other)"), "Other/Unknown", first_device_type))
 
 ## language
 language_extrem <- names(which(table(real_train_users$language) < 1000))
@@ -143,7 +145,7 @@ language_tokeep <- names(which(table(real_train_users$language) >= 1000))
 real_train_users <- real_train_users %>%
   filter(language %in% language_tokeep | is.na(language))
 
-ggplot(real_train_users, aes(x=real_train_users$language)) + geom_bar()
+ggplot(real_train_users, aes(x=language)) + geom_bar()
 # il n'y a plus qu'une seule valeur possible, la colonne ne nous sert plus
 
 ## affiliate_channel
@@ -247,6 +249,10 @@ mcor
   #student test par âge / gender
 t.test(real_train_users$age ~ real_train_users$gender)
 
+# p est grand (16%) donc le resultat du test n'est pas significatif, on ne peut pas rejeter l'hypothèse
+# nulle d'égalité des moyennes des 2 groupes.
+
+
 # B * Variables qualitatives: ---------------------------------
 # les statistiques descriptives univariées : la distribution
 
@@ -314,6 +320,10 @@ action_actionType_actionDetail_most_freq <- sessions %>%
   select(-c(n,action,action_type,action_detail))
 
 # Le device_type le plus fréquent
+##prétraitement de la colonne device_type pour match les valeurs de la colonne "first_device" du dataset train_users
+sessions <- sessions %>%
+  mutate(device_type = recode(device_type, `iPad Tablet` = "iPad"))
+
 deviceType_most_freq <- sessions %>%
   group_by(user_id) %>%
   count(device_type) %>%
@@ -350,7 +360,6 @@ train_dataset <- inner_join(real_train_users, user_sessions, by = c("id" = "user
 train_dataset <- left_join(train_dataset, countries, by = "country_destination")
 
 # jointure avec le dataset age_gender_bkts
-
 ## Nous allons classer les valeurs par tranche conformément aux tranches décrites
 ## dans le jeu de données age_gender_bkts
 real_train_users <- real_train_users %>%
@@ -416,6 +425,7 @@ mcor2 <- train_dataset %>%
   select(age, signup_flow, NbActions, NbActions_ActionsTypes, NbActions_ActionsTypes_ActionDetails, NbDevices, dureeTotal, dureeMedian, dureeMax) %>%
   cor(use = "complete.obs")
 mcor2
+  
 
 ##couleur par genre
 train_dataset %>%
@@ -428,25 +438,39 @@ train_dataset %>%
   ggpairs(columns = 2:10, ggplot2::aes(colour = country_destination))
 
 # la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test de Student // ANOVA
-# par âge / country destination
+# par âge / genre
 t.test(train_dataset$age ~ train_dataset$gender)
 
 # B * Variables qualitatives: ---------------------------------
 # les statistiques descriptives univariées : la distribution
-dotchart(sort(table(real_train_users$first_browser)))
+dotchart(sort(table(train_dataset$first_browser)))
 
 # les corrélations entre des variables (Une matrice de corrélation)
 tab_genre2 <- table(train_dataset$country_destination, train_dataset$gender)
 tab_genre2
 
-mosaicplot(tab_genre2)
+# corrélation entre les devices type joints entre les tables
+tab_device <- table(train_dataset$first_device_type, train_dataset$mostFreqDeviceType)
+tab_device
+
+# corrélation entre l'age des utilisateur et les devices utilisé
+train_dataset %>%
+  ggplot(aes(x=mostFreqDeviceType, y=age, fill=mostFreqDeviceType)) +
+  geom_boxplot(alpha = 0.8) +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "BuPu")
 
 # la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test d’indépendance
-
 # Quel pays est le plus apprécié (destination) entre les hommes et les femmes ?
 chisq.test(tab_genre2)
 chisq.residuals(tab_genre2)
+
+chisq.test(tab_device)
+chisq.residuals(tab_device)
+
+mosaicplot(tab_device, las = 4, shade = TRUE)
 #L’interprétation des résidus est la suivante :
-# si la valeur du résidu pour une case est inférieure à -2, alors il y a une sous-représentation de cette case dans le tableau : les effectifs sont significativement plus faibles que ceux attendus sous l’hypothèse d’indépendance
+# si la valeur du résidu pour une case est inférieure à -2, alors il y a une sous-représentation de cette case dans le tableau :
+# les effectifs sont significativement plus faibles que ceux attendus sous l’hypothèse d’indépendance
 # à l’inverse, si le résidu est supérieur à 2, il y a sur-représentatation de cette case
 # si le résidu est compris entre -2 et 2, il n’y a pas d’écart à l’indépendance significatif
