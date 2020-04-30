@@ -1,0 +1,60 @@
+---
+title: "Cours R - Projet Final"
+author:
+  - Amine Aliane^[amine_aliane@hotmail.fr]
+  - Meriam Hammouda^[hammouda.meriam@yahoo.fr]
+  - Imed Eddine Boussouf^[imededdine.boussouf@yahoo.com]
+  - Lina Saidane^[lina.saidane96@gmail.com]
+  - Esteban Gobert^[esteban.gobert@me.com]
+date: "30 avril 2020"
+knit: (function(inputFile, encoding) { 
+      out_dir <- '../outputs';
+      rmarkdown::render(inputFile,
+                        encoding=encoding, 
+                        output_file=file.path(dirname(inputFile), out_dir, 'Rapport_ProjetFinal_R.html')) })
+output:
+  rmdformats::html_clean:
+    highlight: kate
+    toc: yes
+    self_contained: true
+    code_folding: show
+    thumbnails: true
+    gallery: true
+    fig_height: 4
+    df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "../")
+```
+
+```{r load_functions, message=FALSE, warning=FALSE, include=FALSE}
+# Chargememt des fonctions sources
+source("function/prepareData.R")
+source("scripts/1_Initialisation.R")
+source("scripts/2_1_1_cleanData.R")
+```
+
+## Présentation des données
+
+Nous allons nous intéresser au jeu de données : train_users  
+Description de la qualité de données : train_users
+```{r real_train_users, echo=FALSE}
+summary(train_users)
+
+train_users_sansNDF_noID <- train_users_sansNDF[-1]
+
+print(dfSummary(train_users_sansNDF_noID,
+          round.digits = 2,
+          na.col = TRUE,
+          varnumbers = FALSE,
+          graph.magnif = 0.75,
+          plain.ascii = FALSE),
+      method = 'render')
+
+#missmap(train_users_sansNDF, main = "Valeurs manquantes contre celles observées")
+```
+
+## Including Plots
+
