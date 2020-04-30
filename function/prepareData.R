@@ -9,3 +9,10 @@ sample_fill_na = function(x) {
   x[x_na] = sample(x[!x_na], size = sum(x_na), replace = TRUE)
   return(x)
 }
+
+# table on columns in df
+observe_table = function(df, colnames) {
+  for (name in colnames) {
+    print(table(df[name], useNA = 'always'))
+  }
+}
