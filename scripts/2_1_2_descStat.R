@@ -22,8 +22,9 @@
 
 ### 2. Statistiques descriptives de données : "train_users": ---------------------------
 # stats basiques sur toutes les données, stats univariées sur chaque colonnes
-dfSummary(real_train_users,
-          round.digits = 2,
+real_train_users %>%
+  select(-id) %>%
+  dfSummary(round.digits = 2,
           na.col = FALSE,
           varnumbers = FALSE,
           plain.ascii = TRUE)

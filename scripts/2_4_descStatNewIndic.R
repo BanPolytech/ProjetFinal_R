@@ -22,15 +22,10 @@
 
 ## 4- Description statistique sur les indicateurs créés--------
 
-summary(train_dataset)
-
 train_dataset %>%
-  select(-dureeMax) %>%
+  select(-c(dureeMax,id)) %>%
   dfSummary()
 
-dfSummary(train_dataset,
-          round.digits = 2,
-          plain.ascii = FALSE)
 # A * Variables quantitatives: ---------------------------------
 # les statistiques descriptives univariées : la distribution
 train_dataset %>%

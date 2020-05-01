@@ -30,7 +30,7 @@ train_dataset <- left_join(train_dataset, countries, by = "country_destination")
 # jointure avec le dataset age_gender_bkts
 ## Nous allons classer les valeurs par tranche conformément aux tranches décrites
 ## dans le jeu de données age_gender_bkts
-real_train_users <- real_train_users %>%
+train_dataset <- train_dataset %>%
   mutate(age_tranche = cut_width(age,
                                  width = 5,
                                  boundary = 90,

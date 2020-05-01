@@ -38,6 +38,7 @@ library(ellipse)
 library(RColorBrewer)
 library(GGally)
 library(zoo)
+library(janitor)
 
 # Chargement des fonctions sources
 source("function/prepareData.R")
@@ -137,7 +138,7 @@ real_train_users <- real_train_users %>% filter(gender != "OTHER" | is.na(gender
 ## first_device_type
 #table(real_train_users$first_device_type)
 #ggplot(real_train_users, aes(x=first_device_type)) + geom_bar()
-## regroupement possible entre les différentes type de device
+## Regroupement de "Android Phone", "Android Tablet" et "Desktop (Other)" en "Other/Unknown"
 real_train_users <- real_train_users %>% 
   mutate(first_device_type = if_else(first_device_type %in% c("Android Phone", "Android Tablet", "Desktop (Other)"), "Other/Unknown", first_device_type))
 
@@ -167,7 +168,7 @@ real_train_users <- real_train_users %>%
 
 
 # C * Variables manquantes: ---------------------------------
-
+real_train_users_NA <- real_train_users
 missingVals <- as.data.frame(sapply(real_train_users, FUN = "countMissingVals"))
 colnames(missingVals) <- "Nombre de valeur manquante"
 # missingVals

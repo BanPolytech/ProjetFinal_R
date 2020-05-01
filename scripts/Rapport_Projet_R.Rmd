@@ -16,6 +16,7 @@ output:
   rmdformats::html_clean:
     highlight: kate
     toc: yes
+    toc_depth: 4
     self_contained: true
     code_folding: show
     thumbnails: true
@@ -34,27 +35,249 @@ knitr::opts_knit$set(root.dir = "../")
 source("function/prepareData.R")
 source("scripts/1_Initialisation.R")
 source("scripts/2_1_1_cleanData.R")
+source("scripts/2_2_sessions.R")
+source("scripts/2_3_jointures.R")
 ```
 
 ## Présentation des données
 
 Nous allons nous intéresser au jeu de données : train_users  
-Description de la qualité de données : train_users
 ```{r real_train_users, echo=FALSE}
-summary(train_users)
-
-train_users_sansNDF_noID <- train_users_sansNDF[-1]
-
-print(dfSummary(train_users_sansNDF_noID,
-          round.digits = 2,
+print(
+  real_train_users_NA %>%
+    select(-id) %>%
+    dfSummary(round.digits = 2,
           na.col = TRUE,
           varnumbers = FALSE,
           graph.magnif = 0.75,
           plain.ascii = FALSE),
+      max.tbl.height = 400,
       method = 'render')
 
 #missmap(train_users_sansNDF, main = "Valeurs manquantes contre celles observées")
 ```
+Avec cette description on peut observer que nous avons des variables aberrantes, extrèmes et manquantes, il faut donc les traiter.
 
-## Including Plots
+* abbberantes :  
+  + age : On considère comme aberrantes les valeurs pour âge < 18 et âge >= 90  
+* extrêmes :  
+  + first_browser : Garder les modalités chrome, firefox, IE, Safari et mobile Safari.  
+  + affiliate_provider : On garde les modalités “direct”, “google” et on regroupe tout le reste dans la modalité “others”.  
+  + gender : Suppression des lignes “OTHER” (0,14%)
+  + first_device_type : Regroupement de "Android Phone", "Android Tablet" et "Desktop (Other)" en "Other/Unknown".  
+  + language : On supprime les lignes ou il y a - de 1% d'effectif, il ne reste plus qu'une seule modalité possible la colonne devient inutile.  
+  + affiliate_channel : On regroupe les modalité qui ont - de 1000 entités en "other".  
+  + first_affiliate_tracked : On regroupe les modalité qui ont - de 1000 entités en "tracked-other".  
+* manquantes :  
+  + gender : Distribuer le genre sur les NAs en fonction de la proportion de MALE et FEMALE.  
+  + age, first_affiliate_tracked et first_browser : Distribution par LOCF pour ne pas briser la distribution originale.  
+  
 
+```{r missmap, echo=FALSE, message=FALSE, warning=FALSE}
+missmap(real_train_users_NA, main = "Valeurs manquantes contre celles observées apres suppressions des valeurs extrêmes et aberrantes")
+```
+
+### Statistiques descriptives du jeu de données train_users
+
+```{r sumtool, echo=FALSE, message=FALSE, warning=FALSE}
+print(
+  real_train_users %>%
+    select(-id) %>%
+    dfSummary(round.digits = 2,
+          na.col = FALSE,
+          varnumbers = FALSE,
+          graph.magnif = 0.75,
+          plain.ascii = FALSE),
+      max.tbl.height = 400,
+      method = 'render')
+```
+
+#### Variables quantitatives
+```{r var quantitatives, echo=FALSE, message=FALSE, warning=FALSE}
+# age
+real_train_users %>%
+  ggplot(aes(x=age)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+# signup_flow
+real_train_users %>%
+  ggplot(aes(x=signup_flow)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+# boite a moustache avec gender et age
+real_train_users %>%
+  ggplot(aes(x=gender, y=age)) +
+  geom_boxplot(fill="#69b3a2", alpha=0.8)
+
+# matrice de corrélation
+mcor <- real_train_users %>%
+  select(age, signup_flow) %>%
+  cor(use = "complete.obs")
+mcor
+
+t.test(real_train_users$age ~ real_train_users$gender)
+# p est grand (16%) donc le resultat du test n'est pas significatif, on ne peut pas rejeter l'hypothèse
+# nulle d'égalité des moyennes des 2 groupes.
+```
+
+#### Variables qualitatives
+```{r var quali, echo=FALSE, message=FALSE, warning=FALSE}
+# les statistiques descriptives univariées : la distribution
+
+dotchart(sort(table(real_train_users$first_browser)))
+
+# les corrélations entre des variables (Une matrice de corrélation)
+tab_genre <- table(real_train_users$country_destination, real_train_users$gender)
+print(tab_genre, method = 'render')
+
+mosaicplot(tab_genre)
+
+# la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test d’indépendance
+
+# Quel pays est le plus apprécié (destination) entre les hommes et les femmes ?
+chisq.test(tab_genre)
+chisq.residuals(tab_genre)
+#L’interprétation des résidus est la suivante :
+# si la valeur du résidu pour une case est inférieure à -2, alors il y a une sous-représentation de cette case dans le tableau : les effectifs sont significativement plus faibles que ceux attendus sous l’hypothèse d’indépendance
+# à l’inverse, si le résidu est supérieur à 2, il y a sur-représentatation de cette case
+# si le résidu est compris entre -2 et 2, il n’y a pas d’écart à l’indépendance significatif
+```
+
+### Dataset Sessions
+
+On s'intéresse maintenant au jeu de données sessions, nous allons calculer des indicateurs
+```{r user_sessions, echo=FALSE, message=FALSE, warning=FALSE}
+print(
+  user_sessions %>%
+    select(-c(user_id, dureeMax)) %>%
+    dfSummary(round.digits = 2,
+          na.col = FALSE,
+          varnumbers = FALSE,
+          graph.magnif = 0.75,
+          plain.ascii = FALSE),
+      max.tbl.height = 400,
+      method = 'render')
+```
+
+### Jointures
+
+Nous allons opérer une jointure entre l’agrégation des sessions (user_sessions) et le dataset d’entrainement (train_users).  
+Ensuite nous allons faire une jointure avec les dataset subsidiaires countries et age_gender_bkts.
+
+Pour que la jointure s'opère avec le dataset age_gender_bkts il faut effectuer quelques changements :
+
+- créer une nouvelle variable tranche_age pour matcher avec la colonne age_bucket
+- mettre en lettres capitales les modalités de la colonne gender(age_gender_bkts)
+
+
+### Statistiques descriptives du jeu de données train_dataset
+
+Issue de la jointure entre les dataset train_users, user_sessions, age_gender_bkts et countries : le jeu de données train_dataset nous permet de décrire les variables d'une autre manière
+
+```{r statdesc2, echo=FALSE, message=FALSE, warning=FALSE}
+
+print(
+  train_dataset %>%
+    select(-c(id,dureeMax)) %>%
+    dfSummary(round.digits = 2,
+          na.col = FALSE,
+          varnumbers = FALSE,
+          graph.magnif = 0.75,
+          plain.ascii = FALSE),
+      max.tbl.height = 400,
+      method = 'render')
+```
+
+#### Variables Quantitatives
+```{r var quant2, echo=FALSE, message=FALSE, warning=FALSE}
+train_dataset %>%
+  ggplot(aes(x=NbActions)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=NbActions_ActionsTypes)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=NbActions_ActionsTypes_ActionDetails)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=NbDevices)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=dureeTotal)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=dureeMax)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+train_dataset %>%
+  ggplot(aes(x=dureeMedian)) + 
+  geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+# les statistiques descriptives bivariées : corrélations entre des variables (Une matrice de corrélation) :
+# boite a moustache avec gender et age
+train_dataset %>%
+  ggplot(aes(x=gender, y=age)) +
+  geom_boxplot(fill="#69b3a2", alpha=0.8)
+
+# matrice de corrélation
+mcor2 <- train_dataset %>%
+  select(age, signup_flow, NbActions, NbActions_ActionsTypes, NbActions_ActionsTypes_ActionDetails, NbDevices, dureeTotal, dureeMedian, dureeMax) %>%
+  cor(use = "complete.obs")
+
+
+##couleur par genre
+train_dataset %>%
+  select(gender, age, signup_flow, NbActions, NbActions_ActionsTypes, NbActions_ActionsTypes_ActionDetails, NbDevices, dureeTotal, dureeMedian, dureeMax) %>%
+  ggpairs(columns = 2:10,ggplot2::aes(colour = gender))
+
+##couleur par country_destination
+train_dataset %>%
+  select(country_destination, age, signup_flow, NbActions, NbActions_ActionsTypes, NbActions_ActionsTypes_ActionDetails, NbDevices, dureeTotal, dureeMedian, dureeMax) %>%
+  ggpairs(columns = 2:10, ggplot2::aes(colour = country_destination))
+
+# la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test de Student // ANOVA
+# par âge / genre
+t.test(train_dataset$age ~ train_dataset$gender)
+```
+
+#### Variables Qualitatives
+
+```{r var_quali2, echo=FALSE, message=FALSE, warning=FALSE}
+# les statistiques descriptives univariées : la distribution
+dotchart(sort(table(train_dataset$first_browser)))
+
+# les corrélations entre des variables (Une matrice de corrélation)
+tab_genre2 <- table(train_dataset$country_destination, train_dataset$gender)
+tab_genre2
+
+# corrélation entre les devices type joints entre les tables
+tab_device <- table(train_dataset$first_device_type, train_dataset$mostFreqDeviceType)
+tab_device
+
+# corrélation entre l'age des utilisateur et les devices utilisé
+train_dataset %>%
+  ggplot(aes(x=mostFreqDeviceType, y=age, fill=mostFreqDeviceType)) +
+  geom_boxplot(alpha = 0.8) +
+  theme(legend.position = "none") +
+  scale_fill_brewer(palette = "Paired")
+
+# la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test d’indépendance
+# Quel pays est le plus apprécié (destination) entre les hommes et les femmes ?
+chisq.test(tab_genre2)
+chisq.residuals(tab_genre2)
+
+chisq.test(tab_device)
+chisq.residuals(tab_device)
+
+mosaicplot(tab_device, las = 4, shade = TRUE)
+#L’interprétation des résidus est la suivante :
+# si la valeur du résidu pour une case est inférieure à -2, alors il y a une sous-représentation de cette case dans le tableau :
+# les effectifs sont significativement plus faibles que ceux attendus sous l’hypothèse d’indépendance
+# à l’inverse, si le résidu est supérieur à 2, il y a sur-représentatation de cette case
+# si le résidu est compris entre -2 et 2, il n’y a pas d’écart à l’indépendance significatif
+```
