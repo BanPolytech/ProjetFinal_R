@@ -20,7 +20,19 @@
 #
 ###########################################################################
 
+# Charger les packages:---------------------------------------------
+library(dplyr)
+library(ggplot2)
+
 ## 3- Jointures--------
+## Nous allons classer les valeurs par tranche conformément aux tranches décrites
+## dans le jeu de données age_gender_bkts
+real_train_users <- real_train_users %>%
+  mutate(age_tranche = cut_width(age,
+                                 width = 5,
+                                 boundary = 90,
+                                 labels = c("15-19","20-24","25-29","30-34","35-39","40-44","45-49","50-54","55-59","60-64","65-69","70-74","75-79","80-84","85-89")))
+
 # jointure entre l’agrégation des sessions (user_sessions) et le dataset d’entrainement (train_users)
 train_dataset <- inner_join(real_train_users, user_sessions, by = c("id" = "user_id"))
 
@@ -28,14 +40,6 @@ train_dataset <- inner_join(real_train_users, user_sessions, by = c("id" = "user
 train_dataset <- left_join(train_dataset, countries, by = "country_destination")
 
 # jointure avec le dataset age_gender_bkts
-## Nous allons classer les valeurs par tranche conformément aux tranches décrites
-## dans le jeu de données age_gender_bkts
-train_dataset <- train_dataset %>%
-  mutate(age_tranche = cut_width(age,
-                                 width = 5,
-                                 boundary = 90,
-                                 labels = c("15-19","20-24","25-29","30-34","35-39","40-44","45-49","50-54","55-59","60-64","65-69","70-74","75-79","80-84","85-89")))
-
 age_gender_bkts$gender <- toupper(age_gender_bkts$gender)
 train_dataset <- left_join(train_dataset, age_gender_bkts, by = c("age_tranche" = "age_bucket", "gender" = "gender", "country_destination" = "country_destination"))
 

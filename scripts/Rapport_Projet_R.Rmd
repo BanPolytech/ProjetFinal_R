@@ -4,6 +4,7 @@ author:
   - Amine Aliane^[amine_aliane@hotmail.fr]
   - Meriam Hammouda^[hammouda.meriam@yahoo.fr]
   - Imed Eddine Boussouf^[imededdine.boussouf@yahoo.com]
+  - Khaoula Elmoutamid^[khaoula.elmoutamid@gmail.com]
   - Lina Saidane^[lina.saidane96@gmail.com]
   - Esteban Gobert^[esteban.gobert@me.com]
 date: "30 avril 2020"
@@ -16,7 +17,7 @@ output:
   rmdformats::html_clean:
     highlight: kate
     toc: yes
-    toc_depth: 4
+    toc_depth: 5
     self_contained: true
     code_folding: show
     thumbnails: true
@@ -28,6 +29,8 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = "../")
+
+maxtblheight <- 700
 ```
 
 ```{r load_functions, message=FALSE, warning=FALSE, include=FALSE}
@@ -51,7 +54,7 @@ print(
           varnumbers = FALSE,
           graph.magnif = 0.75,
           plain.ascii = FALSE),
-      max.tbl.height = 400,
+      max.tbl.height = maxtblheight,
       method = 'render')
 
 #missmap(train_users_sansNDF, main = "Valeurs manquantes contre celles observées")
@@ -65,7 +68,7 @@ Avec cette description on peut observer que nous avons des variables aberrantes,
   + affiliate_provider : On garde les modalités “direct”, “google” et on regroupe tout le reste dans la modalité “others”.  
   + gender : Suppression des lignes “OTHER” (0,14%)
   + first_device_type : Regroupement de "Android Phone", "Android Tablet" et "Desktop (Other)" en "Other/Unknown".  
-  + language : On supprime les lignes ou il y a - de 1% d'effectif, il ne reste plus qu'une seule modalité possible la colonne devient inutile.  
+  + language : On supprime les lignes où il y a - de 1% d'effectif, il ne reste plus qu'une seule modalité possible la colonne devient inutile.  
   + affiliate_channel : On regroupe les modalité qui ont - de 1000 entités en "other".  
   + first_affiliate_tracked : On regroupe les modalité qui ont - de 1000 entités en "tracked-other".  
 * manquantes :  
@@ -75,9 +78,11 @@ Avec cette description on peut observer que nous avons des variables aberrantes,
 
 ```{r missmap, echo=FALSE, message=FALSE, warning=FALSE}
 missmap(real_train_users_NA, main = "Valeurs manquantes contre celles observées apres suppressions des valeurs extrêmes et aberrantes")
+
+missingVals
 ```
 
-### Statistiques descriptives du jeu de données train_users
+## Statistiques descriptives du jeu de données train_users
 
 ```{r sumtool, echo=FALSE, message=FALSE, warning=FALSE}
 print(
@@ -88,11 +93,15 @@ print(
           varnumbers = FALSE,
           graph.magnif = 0.75,
           plain.ascii = FALSE),
-      max.tbl.height = 400,
+      max.tbl.height = maxtblheight,
       method = 'render')
 ```
 
-#### Variables quantitatives
+### Variables quantitatives
+
+Bien qu'ayant déjà une description complète dans le tableau précédent, nous pouvons observer les variables quantitatives d'une autre manière.  
+
+On étudie la densité des variables quantitatives :  
 ```{r var quantitatives, echo=FALSE, message=FALSE, warning=FALSE}
 # age
 real_train_users %>%
@@ -109,21 +118,40 @@ real_train_users %>%
   ggplot(aes(x=gender, y=age)) +
   geom_boxplot(fill="#69b3a2", alpha=0.8)
 
+# boite a moustache avec gender et signup_flow
+real_train_users %>%
+  ggplot(aes(x=gender, y=signup_flow)) +
+  geom_boxplot(fill="#69b3a2", alpha=0.8)
+```
+
+
+On observe la corrélation entre les variables age et signup_flow :  
+```{r mat_corr, echo=FALSE, message=FALSE, warning=FALSE}
 # matrice de corrélation
 mcor <- real_train_users %>%
   select(age, signup_flow) %>%
   cor(use = "complete.obs")
-mcor
 
-t.test(real_train_users$age ~ real_train_users$gender)
-# p est grand (16%) donc le resultat du test n'est pas significatif, on ne peut pas rejeter l'hypothèse
-# nulle d'égalité des moyennes des 2 groupes.
+corrplot(mcor, type="upper", order="hclust", tl.col="black", tl.srt=50)
 ```
+Les corrélations positives sont affichées en bleu et les corrélations négatives en rouge.  
+L’intensité de la couleur et la taille des cercles sont proportionnelles aux coefficients de corrélation.  
+A droite du corrélogramme, la légende de couleurs montre les coefficients de corrélation et les couleurs correspondantes.  
 
-#### Variables qualitatives
+On peut voir que les 2 variables ne sont pas vraiment corrélés.  
+
+
+Test de Student par âge / gender :  
+```{r student, echo=FALSE, message=FALSE, warning=FALSE}
+#student test par âge / gender
+t.test(real_train_users$age ~ real_train_users$gender)
+```
+p est grand (16%) donc le resultat du test n'est pas significatif, on ne peut pas rejeter l'hypothèse nulle d'égalité des moyennes des 2 groupes.  
+
+### Variables qualitatives
 ```{r var quali, echo=FALSE, message=FALSE, warning=FALSE}
 # les statistiques descriptives univariées : la distribution
-
+tabyl(real_train_users$gender)
 dotchart(sort(table(real_train_users$first_browser)))
 
 # les corrélations entre des variables (Une matrice de corrélation)
@@ -143,7 +171,7 @@ chisq.residuals(tab_genre)
 # si le résidu est compris entre -2 et 2, il n’y a pas d’écart à l’indépendance significatif
 ```
 
-### Dataset Sessions
+## Statistiques descriptives du jeu de données sessions
 
 On s'intéresse maintenant au jeu de données sessions, nous allons calculer des indicateurs
 ```{r user_sessions, echo=FALSE, message=FALSE, warning=FALSE}
@@ -155,11 +183,11 @@ print(
           varnumbers = FALSE,
           graph.magnif = 0.75,
           plain.ascii = FALSE),
-      max.tbl.height = 400,
+      max.tbl.height = maxtblheight,
       method = 'render')
 ```
 
-### Jointures
+## Statistiques descriptives du jeu de données train_dataset
 
 Nous allons opérer une jointure entre l’agrégation des sessions (user_sessions) et le dataset d’entrainement (train_users).  
 Ensuite nous allons faire une jointure avec les dataset subsidiaires countries et age_gender_bkts.
@@ -167,12 +195,10 @@ Ensuite nous allons faire une jointure avec les dataset subsidiaires countries e
 Pour que la jointure s'opère avec le dataset age_gender_bkts il faut effectuer quelques changements :
 
 - créer une nouvelle variable tranche_age pour matcher avec la colonne age_bucket
-- mettre en lettres capitales les modalités de la colonne gender(age_gender_bkts)
+- mettre en lettres capitales les modalités de la colonne gender (age_gender_bkts)
 
 
-### Statistiques descriptives du jeu de données train_dataset
-
-Issue de la jointure entre les dataset train_users, user_sessions, age_gender_bkts et countries : le jeu de données train_dataset nous permet de décrire les variables d'une autre manière
+Issu de la jointure entre les dataset train_users, user_sessions, age_gender_bkts et countries : le jeu de données train_dataset nous permet de décrire les variables d'une autre manière
 
 ```{r statdesc2, echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -184,11 +210,11 @@ print(
           varnumbers = FALSE,
           graph.magnif = 0.75,
           plain.ascii = FALSE),
-      max.tbl.height = 400,
+      max.tbl.height = maxtblheight,
       method = 'render')
 ```
 
-#### Variables Quantitatives
+### Variables Quantitatives
 ```{r var quant2, echo=FALSE, message=FALSE, warning=FALSE}
 train_dataset %>%
   ggplot(aes(x=NbActions)) + 
@@ -245,7 +271,7 @@ train_dataset %>%
 t.test(train_dataset$age ~ train_dataset$gender)
 ```
 
-#### Variables Qualitatives
+### Variables Qualitatives
 
 ```{r var_quali2, echo=FALSE, message=FALSE, warning=FALSE}
 # les statistiques descriptives univariées : la distribution

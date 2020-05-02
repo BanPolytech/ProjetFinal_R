@@ -39,6 +39,8 @@ library(RColorBrewer)
 library(GGally)
 library(zoo)
 library(janitor)
+library(corrplot)
+
 
 # Chargement des fonctions sources
 source("function/prepareData.R")
@@ -182,7 +184,7 @@ setDT(real_train_users)[, gender := sample_fill_na(real_train_users$gender)]
 ## age
 # par la mediane
 
-real_train_users$ageMedian <- na.aggregate(real_train_users$age, FUN = median)
+#real_train_users$ageMedian <- na.aggregate(real_train_users$age, FUN = median)
 
 # Plus proche voisin en clustering (KNN)
 #res <- kNN(sample,

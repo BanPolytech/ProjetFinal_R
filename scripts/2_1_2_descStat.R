@@ -53,7 +53,11 @@ real_train_users %>%
 mcor <- real_train_users %>%
   select(age, signup_flow) %>%
   cor(use = "complete.obs")
-mcor
+
+corrplot(mcor, type="upper", order="hclust", tl.col="black", tl.srt=50)
+#Les corrélations positives sont affichées en bleu et les corrélations négatives en rouge.
+#L’intensité de la couleur et la taille des cercles sont proportionnelles aux coefficients de corrélation.
+#A droite du corrélogramme, la légende de couleurs montre les coefficients de corrélation et les couleurs correspondantes.
 
 # la corrélation avec la variable à expliquer (facultatif : 0.5 pt en plus) : Test de Student // ANOVA
 
