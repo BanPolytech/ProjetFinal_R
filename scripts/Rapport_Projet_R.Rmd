@@ -134,6 +134,7 @@ mcor <- real_train_users %>%
 
 corrplot(mcor, type="upper", order="hclust", tl.col="black", tl.srt=50)
 ```
+  
 Les corrélations positives sont affichées en bleu et les corrélations négatives en rouge.  
 L’intensité de la couleur et la taille des cercles sont proportionnelles aux coefficients de corrélation.  
 A droite du corrélogramme, la légende de couleurs montre les coefficients de corrélation et les couleurs correspondantes.  
@@ -151,7 +152,6 @@ p est grand (16%) donc le resultat du test n'est pas significatif, on ne peut pa
 ### Variables qualitatives
 ```{r var quali, echo=FALSE, message=FALSE, warning=FALSE}
 # les statistiques descriptives univariées : la distribution
-tabyl(real_train_users$gender)
 dotchart(sort(table(real_train_users$first_browser)))
 
 # les corrélations entre des variables (Une matrice de corrélation)

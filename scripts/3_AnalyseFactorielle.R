@@ -23,6 +23,7 @@
 library("mnlogit")
 library("nnet")
 library("MASS")
+library("broom")
 
 # Step n°3: Analyse factorielle & Modalisations --------------------------
 
@@ -44,4 +45,4 @@ mymodel_stepwise <- MASS::stepAIC(mymodel_temp,
                                   trace = TRUE, data = head(real_train_users, 100), direction = "both")
 summary(mymodel_stepwise)
 
-ggcoef(mymodel, exponentiate = TRUE) + facet_grid(~y.level)
+ggcoef(mymodel, exponentiate = TRUE) + facet_grid(~y.level) + aes(color = y.level)
