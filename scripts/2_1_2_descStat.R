@@ -64,6 +64,8 @@ corrplot(mcor, type="upper", order="hclust", tl.col="black", tl.srt=50)
 #student test par âge / gender
 t.test(real_train_users$age ~ real_train_users$gender)
 
+t.test(real_train_users$age ~ real_train_users$country_destination)
+
 # p est grand (16%) donc le resultat du test n'est pas significatif, on ne peut pas rejeter l'hypothèse
 # nulle d'égalité des moyennes des 2 groupes.
 
@@ -74,7 +76,7 @@ t.test(real_train_users$age ~ real_train_users$gender)
 dotchart(sort(table(real_train_users$first_browser)))
 
 # les corrélations entre des variables (Une matrice de corrélation)
-tab_genre <- table(real_train_users$country_destination, real_train_users$gender)
+tab_genre <- tabyl(real_train_users$country_destination, real_train_users$gender)
 tab_genre
 
 mosaicplot(tab_genre)
